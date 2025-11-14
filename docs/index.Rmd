@@ -8,26 +8,67 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+Paracetamol is a very common drug in the UK. while it can be obtained without prescription for significantly cheaper than it costs the NHS to supply through prescriptions, it still remains one of the most prescribed drugs in the UK. I will specifically be looking at the 500mg Paracetamol Tablets as this is the most common form found in shops as well as most commonly prescribed. I am aiming to look if any areas have higher rates of paracetamol prescription than others, if these areas have any trends in demographics and if there is a temporal aspect to the prescription.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+library(here)
+library(tidyverse)
+library(dplyr)
+```
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+```{r}
+
+data_cleaning <- function(date, url) {
+  read.csv(url) %>% 
+    filter(BNFItemDescription == "PARACETAMOL 500MG CAPLETS") %>% 
+    mutate(Date = date)
+} 
+
+
+jan24 <- data_cleaning("01/2024", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/d3eaaf84-0f3b-4fb8-9460-e33503095fbe/download/pitc202401.csv")
+feb24 <- data_cleaning("02/2024", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/86fda652-0e1d-48bb-9368-aa2a560d925b/download/pitc202402.csv")
+mar24 <- data_cleaning("03/2024", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/a42762ac-47cb-4fb6-b9b1-2478a588c0ed/download/pitc202403.csv")
+apr24 <- data_cleaning("04/2024", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/409a02f2-b77c-47a0-917d-4a5a1c90f182/download/pitc202404.csv")
+may24 <- data_cleaning("05/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/5fbbd126-6166-4249-9620-7ed78e877297/download/pitc202405.csv")
+jun24 <- data_cleaning("06/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/95f7f250-bd04-4e4a-b853-5df75b00a632/download/pitc202406.csv")
+jul24 <- data_cleaning("07/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/1cb425fc-640c-4b37-9013-f8e97f274085/download/pitc202407.csv")
+aug24 <- data_cleaning("08/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/e4985a62-9d59-4e71-8800-3f7ca29ffe0c/download/pitc202408.csv")
+sep24 <- data_cleaning("09/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/d1fbede3-98c4-436e-9e75-2ed807a36075/download/pitc202409.csv")
+oct24 <- data_cleaning("10/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/0d27f6e8-5f8b-42c4-9fe9-c44389af2d3e/download/pitc202410.csv")
+nov24 <- data_cleaning("11/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/1b97dffc-310e-4a30-bf9c-22fddff3f499/download/pitc202411.csv")
+dec24 <- data_cleaning("12/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/e4380152-3d16-446b-9072-108e93cf5caa/download/pitc202412.csv")
+
+all_months <- merge(jan24, feb24, all = TRUE)
+all_months2 <- merge(all_months, may24, all = TRUE)
 ```
 
 ## Including Plots
 
 You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
+```{r pressure}
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-```{r}
-print("Hi world")
+
+
+#all_months2$Date <- factor(all_months2$Date,
+#                  levels = c("jan24", "feb24", "may24"),
+#                 ordered = TRUE)
+
+
+
+board_and_date <- jan24 %>% 
+  group_by(HBT) %>% 
+  summarise(NumberOfPaidItems = sum(NumberOfPaidItems)) %>% 
+  ggplot(aes(x = HBT, y = NumberOfPaidItems)) +
+  geom_col() +
+  ggtitle("Total Paracetamol prescriptions per health board in Scotland in Jan 2024") +
+  xlab("Health board") +
+  ylab("Number of Prescriptions") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+board_and_date
 ```
+From this i can identify the health boards that prescribe the most paracetamol. for my next steps i will add the health board names in, use population data to check prescriptions per 100,000 people and then i will go on to compare the demographics of the health boards to see if there is an explanation of why there are differences.
+
 
