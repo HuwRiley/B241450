@@ -1,46 +1,85 @@
 ---
 title: "Assessment"
-output: html_document
+author: "Huw Riley"
+output: 
+  html_document:
+    theme: darkly
+    toc: true
+    toc_float: true
+    number_sections: true
+    code_folding: hide
+  
 ---
 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
+
+#Introduction 
 
 Paracetamol is a very common drug in the UK. while it can be obtained without prescription for significantly cheaper than it costs the NHS to supply through prescriptions, it still remains one of the most prescribed drugs in the UK. I will specifically be looking at the 500mg Paracetamol Tablets as this is the most common form found in shops as well as most commonly prescribed. I am aiming to look if any areas have higher rates of paracetamol prescription than others, if these areas have any trends in demographics and if there is a temporal aspect to the prescription.
 
-```{r}
-library(here)
-library(tidyverse)
+```{r, error = FALSE, warmimg = FALSE}
+
+library(ggthemes)
+library(tidyverse); theme_set(theme_linedraw())
 library(dplyr)
+library(janitor)
+library(purrr)
+
+#shiny package
+#plotly
+#consider using a graph where you can select specific health boards /  years
+#style to csl document toformat html
+#could pick a drug where i can compare to disease prevalence
+#multiple hashtags make subheadings
 ```
 
 
 ```{r}
 
 data_cleaning <- function(date, url) {
-  read.csv(url) %>% 
-    filter(BNFItemDescription == "PARACETAMOL 500MG CAPLETS") %>% 
-    mutate(Date = date)
-} 
+  read_csv(url, show_col_types = FALSE) %>%
+    clean_names() %>% 
+    mutate(dmd_code = as.character(dmd_code)) %>% 
+    filter(str_starts(bnf_item_code, "0407010H0")) %>%
+    mutate(date = date) 
+}
+dates <- sprintf("%02d/2024", 1:12)
+urls <- c("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/d3eaaf84-0f3b-4fb8-9460-e33503095fbe/download/pitc202401.csv", 
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/86fda652-0e1d-48bb-9368-aa2a560d925b/download/pitc202402.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/a42762ac-47cb-4fb6-b9b1-2478a588c0ed/download/pitc202403.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/409a02f2-b77c-47a0-917d-4a5a1c90f182/download/pitc202404.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/5fbbd126-6166-4249-9620-7ed78e877297/download/pitc202405.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/95f7f250-bd04-4e4a-b853-5df75b00a632/download/pitc202406.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/1cb425fc-640c-4b37-9013-f8e97f274085/download/pitc202407.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/e4985a62-9d59-4e71-8800-3f7ca29ffe0c/download/pitc202408.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/d1fbede3-98c4-436e-9e75-2ed807a36075/download/pitc202409.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/0d27f6e8-5f8b-42c4-9fe9-c44389af2d3e/download/pitc202410.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/1b97dffc-310e-4a30-bf9c-22fddff3f499/download/pitc202411.csv",
+          "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/e4380152-3d16-446b-9072-108e93cf5caa/download/pitc202412.csv")
+
+all_2024 <-map2_dfr(dates, urls, data_cleaning)
+
+all_20242 <- all_2024 %>% 
+  mutate(date = as.Date(paste0(`date`, "/01"), format = "%m/%Y/%d"))
+
+hb_names <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% 
+  clean_names() %>% 
+  select(hb, hb_name)
+
+all_2024_names <- left_join(all_20242, hb_names, by =c("hbt"="hb"))
+
+hb_pop <- read_csv("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv") %>% 
+  clean_names() %>% 
+  filter(year == "2024", sex == "All") %>% 
+  select(hb, all_ages)
+  
+all_2024_names_pops <- left_join(all_2024_names, hb_pop, by =c("hbt"="hb"))
 
 
-jan24 <- data_cleaning("01/2024", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/d3eaaf84-0f3b-4fb8-9460-e33503095fbe/download/pitc202401.csv")
-feb24 <- data_cleaning("02/2024", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/86fda652-0e1d-48bb-9368-aa2a560d925b/download/pitc202402.csv")
-mar24 <- data_cleaning("03/2024", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/a42762ac-47cb-4fb6-b9b1-2478a588c0ed/download/pitc202403.csv")
-apr24 <- data_cleaning("04/2024", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/409a02f2-b77c-47a0-917d-4a5a1c90f182/download/pitc202404.csv")
-may24 <- data_cleaning("05/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/5fbbd126-6166-4249-9620-7ed78e877297/download/pitc202405.csv")
-jun24 <- data_cleaning("06/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/95f7f250-bd04-4e4a-b853-5df75b00a632/download/pitc202406.csv")
-jul24 <- data_cleaning("07/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/1cb425fc-640c-4b37-9013-f8e97f274085/download/pitc202407.csv")
-aug24 <- data_cleaning("08/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/e4985a62-9d59-4e71-8800-3f7ca29ffe0c/download/pitc202408.csv")
-sep24 <- data_cleaning("09/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/d1fbede3-98c4-436e-9e75-2ed807a36075/download/pitc202409.csv")
-oct24 <- data_cleaning("10/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/0d27f6e8-5f8b-42c4-9fe9-c44389af2d3e/download/pitc202410.csv")
-nov24 <- data_cleaning("11/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/1b97dffc-310e-4a30-bf9c-22fddff3f499/download/pitc202411.csv")
-dec24 <- data_cleaning("12/2025", "https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/e4380152-3d16-446b-9072-108e93cf5caa/download/pitc202412.csv")
-
-all_months <- merge(jan24, feb24, all = TRUE)
-all_months2 <- merge(all_months, may24, all = TRUE)
 ```
 
 ## Including Plots
@@ -48,27 +87,34 @@ all_months2 <- merge(all_months, may24, all = TRUE)
 You can also embed plots, for example:
 
 ```{r pressure}
+#maybe add table with average monly values per health board
 
+paracetamol_per_board <- all_2024_names_pops %>% 
+  filter(!is.na(hb_name)) %>% 
+  group_by(hb_name, date) %>% 
+  summarise(
+    number_of_paid_items = sum(number_of_paid_items),
+    population = mean(all_ages),
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    items_per_100k = number_of_paid_items / population * 100000
+  ) %>% 
+  ggplot(aes(x = date, y = items_per_100k)) +
+  geom_line() +
+  facet_wrap(~hb_name) +
+  ggtitle("Total Paracetamol prescriptions per 100,000 population by health board in Scotland (2024)") +
+  xlab("Date") +
+  ylab("Number of Prescriptions per 100,000") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), plot.title = element_text(size=11.5), strip.text= element_text(size = 7)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
 
-
-#all_months2$Date <- factor(all_months2$Date,
-#                  levels = c("jan24", "feb24", "may24"),
-#                 ordered = TRUE)
-
-
-
-board_and_date <- jan24 %>% 
-  group_by(HBT) %>% 
-  summarise(NumberOfPaidItems = sum(NumberOfPaidItems)) %>% 
-  ggplot(aes(x = HBT, y = NumberOfPaidItems)) +
-  geom_col() +
-  ggtitle("Total Paracetamol prescriptions per health board in Scotland in Jan 2024") +
-  xlab("Health board") +
-  ylab("Number of Prescriptions") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-board_and_date
+paracetamol_per_board
 ```
 From this i can identify the health boards that prescribe the most paracetamol. for my next steps i will add the health board names in, use population data to check prescriptions per 100,000 people and then i will go on to compare the demographics of the health boards to see if there is an explanation of why there are differences.
+MAYBE LOOK AT PRESCRIPTIONS PER MONTH SEPARATELY
 
+```{r}
+
+```
 
