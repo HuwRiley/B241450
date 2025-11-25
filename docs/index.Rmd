@@ -1,19 +1,19 @@
 ---
 title: "Assessment"
 author: "Huw Riley"
-output: 
+output:
   html_document:
     theme: darkly
     toc: true
     toc_float: true
     number_sections: true
     code_folding: hide
-  
 ---
 
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
 
 ```
 
@@ -21,13 +21,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Paracetamol is a very common drug in the UK. while it can be obtained without prescription for significantly cheaper than it costs the NHS to supply through prescriptions, it still remains one of the most prescribed drugs in the UK. I will specifically be looking at the 500mg Paracetamol Tablets as this is the most common form found in shops as well as most commonly prescribed. I am aiming to look if any areas have higher rates of paracetamol prescription than others, if these areas have any trends in demographics and if there is a temporal aspect to the prescription.
 
-```{r, error = FALSE, warmimg = FALSE}
+```{r library, error = FALSE, warmimg = FALSE}
 
 library(ggthemes)
 library(tidyverse); theme_set(theme_linedraw())
 library(dplyr)
 library(janitor)
 library(purrr)
+library(sf)
 
 #shiny package
 #plotly
@@ -35,17 +36,19 @@ library(purrr)
 #style to csl document toformat html
 #could pick a drug where i can compare to disease prevalence
 #multiple hashtags make subheadings
+#compare age and simd
 ```
 
 
-```{r}
+```{r load data}
 
 data_cleaning <- function(date, url) {
-  read_csv(url, show_col_types = FALSE) %>%
+    read_csv(url, show_col_types = FALSE) %>%
     clean_names() %>% 
     mutate(dmd_code = as.character(dmd_code)) %>% 
     filter(str_starts(bnf_item_code, "0407010H0")) %>%
-    mutate(date = date) 
+    mutate(date = date) %>%  
+    mutate(date = as.Date(paste0(`date`, "/01"), format = "%m/%Y/%d"))
 }
 dates <- sprintf("%02d/2024", 1:12)
 urls <- c("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/d3eaaf84-0f3b-4fb8-9460-e33503095fbe/download/pitc202401.csv", 
@@ -63,21 +66,20 @@ urls <- c("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db6
 
 all_2024 <-map2_dfr(dates, urls, data_cleaning)
 
-all_20242 <- all_2024 %>% 
-  mutate(date = as.Date(paste0(`date`, "/01"), format = "%m/%Y/%d"))
 
-hb_names <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% 
+hb_names <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv", show_col_types = FALSE) %>% 
   clean_names() %>% 
   select(hb, hb_name)
+ 
+all_2024_names <- left_join(all_2024, hb_names, by =c("hbt"="hb"))
 
-all_2024_names <- left_join(all_20242, hb_names, by =c("hbt"="hb"))
-
-hb_pop <- read_csv("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv") %>% 
+hb_pop <- read_csv("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv", show_col_types = FALSE) %>% 
   clean_names() %>% 
   filter(year == "2024", sex == "All") %>% 
   select(hb, all_ages)
   
 all_2024_names_pops <- left_join(all_2024_names, hb_pop, by =c("hbt"="hb"))
+
 
 
 ```
@@ -86,7 +88,7 @@ all_2024_names_pops <- left_join(all_2024_names, hb_pop, by =c("hbt"="hb"))
 
 You can also embed plots, for example:
 
-```{r pressure}
+```{r monthly graph}
 #maybe add table with average monly values per health board
 
 paracetamol_per_board <- all_2024_names_pops %>% 
@@ -109,12 +111,51 @@ paracetamol_per_board <- all_2024_names_pops %>%
   theme(axis.text.x = element_text(angle = 60, hjust = 1), plot.title = element_text(size=11.5), strip.text= element_text(size = 7)) +
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
 
-paracetamol_per_board
+
+paracetamol_per_board 
+
+
+
 ```
 From this i can identify the health boards that prescribe the most paracetamol. for my next steps i will add the health board names in, use population data to check prescriptions per 100,000 people and then i will go on to compare the demographics of the health boards to see if there is an explanation of why there are differences.
 MAYBE LOOK AT PRESCRIPTIONS PER MONTH SEPARATELY
 
-```{r}
+```{r map}
+zip_path <- paste0("/vsizip//vsicurl/", "https://maps.gov.scot/ATOM/shapefiles/SG_NHS_HealthBoards_2019.zip")
+hb_shapes <- st_read(zip_path)
+print(hb_shapes)
 
+map <- hb_shapes %>% 
+  left_join(all_2024_names_pops, by = c("HBCode" = "hbt"))
+
+map_of_prescriptions <- map %>% 
+  filter(date == as.Date("2024-01-01")) %>% 
+   group_by(hb_name, date) %>% 
+  summarise(
+    number_of_paid_items = sum(number_of_paid_items),
+    population = mean(all_ages),
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    items_per_100k = number_of_paid_items / population * 100000
+  ) %>% 
+  ggplot(aes(fill = items_per_100k)) +
+  geom_sf(colour = "black", size = 0.1) +
+  scale_fill_distiller(
+    palette = "Blues", 
+    direction = 1,  
+    name = "No. of Falls"
+  ) +
+  labs(
+    title = "Total Number of Hospital Admissions for Falls at Home in Women over 75", 
+    subtitle = "Falls at home in women over 75 years by Health Board"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16), 
+    plot.subtitle = element_text(size = 8)
+  )  
+
+map_of_prescriptions
 ```
 
