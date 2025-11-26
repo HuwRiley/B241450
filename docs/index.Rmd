@@ -29,6 +29,7 @@ library(dplyr)
 library(janitor)
 library(purrr)
 library(sf)
+library(patchwork)
 
 #shiny package
 #plotly
@@ -37,6 +38,8 @@ library(sf)
 #could pick a drug where i can compare to disease prevalence
 #multiple hashtags make subheadings
 #compare age and simd
+#datatable
+#gt
 ```
 
 
@@ -75,8 +78,7 @@ all_2024_names <- left_join(all_2024, hb_names, by =c("hbt"="hb"))
 
 hb_pop <- read_csv("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv", show_col_types = FALSE) %>% 
   clean_names() %>% 
-  filter(year == "2024", sex == "All") %>% 
-  select(hb, all_ages)
+  filter(year == "2024", sex == "All") 
   
 all_2024_names_pops <- left_join(all_2024_names, hb_pop, by =c("hbt"="hb"))
 
@@ -129,11 +131,11 @@ map <- hb_shapes %>%
   left_join(all_2024_names_pops, by = c("HBCode" = "hbt"))
 
 map_of_prescriptions <- map %>% 
-  filter(date == as.Date("2024-01-01")) %>% 
-   group_by(hb_name, date) %>% 
+   group_by(hb_name) %>% 
   summarise(
     number_of_paid_items = sum(number_of_paid_items),
     population = mean(all_ages),
+    geometry = first(geometry),
     .groups = "drop"
   ) %>% 
   mutate(
@@ -147,15 +149,81 @@ map_of_prescriptions <- map %>%
     name = "No. of Falls"
   ) +
   labs(
-    title = "Total Number of Hospital Admissions for Falls at Home in Women over 75", 
-    subtitle = "Falls at home in women over 75 years by Health Board"
+    title = "Map of Paracetamol Prescriptions in Scotland", 
+    subtitle = "Number of Paracetamol Prescriptions Per 100k in Each Health Board in Scotland"
   ) +
   theme_void() +
   theme(
-    plot.title = element_text(face = "bold", size = 16), 
-    plot.subtitle = element_text(size = 8)
+    plot.title = element_text(face = "bold", size = 10), 
+    plot.subtitle = element_text(size = 5)
   )  
 
-map_of_prescriptions
+
+
+map_2 <- map %>% 
+  mutate(over_65 = rowSums(across(86:111))) %>% 
+  mutate(percent_over_65 = (over_65 / all_ages)*100)
+
+
+map_of_ages <- map_2 %>% 
+   group_by(hb_name) %>% 
+    summarise(
+    number_of_paid_items = sum(number_of_paid_items),
+    over_65 = mean(percent_over_65),
+    geometry = first(geometry),
+    .groups = "drop") %>% 
+  ggplot(aes(fill = over_65)) +
+  geom_sf(colour = "black", size = 0.1) +
+  scale_fill_distiller(
+    palette = "Blues", 
+    direction = 1,  
+    name = "No. of Falls"
+  ) +
+  labs(
+    title = "Map of Older Populations in Scotland", 
+    subtitle = "Percentage of People 65 or Over in Each Health Board"
+  ) +
+  theme_void() +
+  theme(
+    plot.title = element_text(face = "bold", size = 10), 
+    plot.subtitle = element_text(size = 5)
+  )  
+
+map_of_prescriptions + map_of_ages
+
 ```
+
+```{r SIMD}
+simd <- read_csv("https://www.opendata.nhs.scot/dataset/78d41fa9-1a62-4f7b-9edb-3e8522a93378/resource/acade396-8430-4b34-895a-b3e757fa346e/download/simd2020v2_22062020.csv", show_col_types = FALSE) %>% 
+  clean_names %>% 
+  rename(quintiles = simd2020v2country_quintile) %>% 
+  select(quintiles, data_zone)
+
+gps <- read_csv("https://www.opendata.nhs.scot/dataset/f23655c3-6e23-4103-a511-a80d998adb90/resource/47557411-7eda-4278-9d6d-d26ed2ceab5a/download/practice_contact_details_20251001_o.csv") %>% 
+  clean_names() %>% 
+  rename(gp_practice = practice_code) %>% 
+  left_join(simd, by = "data_zone") %>% 
+  filter(!(is.na(gp_practice)|is.na(quintiles)))
+
+simd_paracetamol <-all_2024_names_pops %>% 
+  left_join(gps, by = "gp_practice")
+
+
+simd_paracetamol_graph <- simd_paracetamol %>% 
+  group_by(gp_practice_name, date) %>% 
+  summarise(items_per_100k = sum(paid_quantity / all_ages)*100000,
+            quintiles = first(quintiles)) %>% 
+  group_by(quintiles, date) %>% 
+  summarise(mean_100k = mean(items_per_100k)) %>% 
+  filter(!is.na(quintiles)) %>% 
+  ggplot(aes(x = date, y = mean_100k)) +
+  geom_line() +
+  facet_wrap(~quintiles)
+simd_paracetamol_graph
+
+```
+
+
+#Limitations
+#conclusions
 
