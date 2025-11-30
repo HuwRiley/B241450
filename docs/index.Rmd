@@ -8,11 +8,17 @@ output:
     toc_float: true
     number_sections: true
     code_folding: hide
+    knitr:
+      opts_chunk:
+        message: false
+        warning: false
 ---
 
 ```{r setup, include=FALSE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+
 
 ```
 
@@ -111,15 +117,17 @@ paracetamol_per_board
 From this i can identify the health boards that prescribe the most paracetamol. for my next steps i will add the health board names in, use population data to check prescriptions per 100,000 people and then i will go on to compare the demographics of the health boards to see if there is an explanation of why there are differences.
 MAYBE LOOK AT PRESCRIPTIONS PER MONTH SEPARATELY
 
-```{r map}
+```{r, message = FALSE, results = 'hide'}
 
 zip_path <- paste0("/vsizip//vsicurl/", "https://maps.gov.scot/ATOM/shapefiles/SG_NHS_HealthBoards_2019.zip")
 hb_shapes <- st_read(zip_path)
-print(hb_shapes)
 
 map <- hb_shapes %>% 
   left_join(all_2024_names_pops, by = c("HBCode" = "hbt"))
 
+```
+
+```{r}
 map_of_prescriptions <- map %>% 
    group_by(hb_name) %>% 
   summarise(number_of_paid_items = sum(number_of_paid_items),
