@@ -5,11 +5,11 @@ output:
   html_document:
     theme: darkly
     toc: true
+    toc_float: true
     number_sections: true
     code_folding: hide
     fig_caption: true
 ---
-
 ```{r setup, include=FALSE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(warning = FALSE)
@@ -24,8 +24,6 @@ knitr::opts_chunk$set(message = FALSE)
 ## Methods
 
   For my analysis, I will be looking at 500mg doses of paracetamol only as these are the most commonly sold measure of paracetamol in supermarkets and therefore the most fair comparison between the two. I will be using prescription data from 2024 as it is the most recent complete year available to me. I am only looking at data of prescriptions in the community, leaving out hospital prescriptions, as it is unrealistic to expect hospitalized patients to purchase their own paracetamol. Therefore they must rely on prescriptions for paracetamol so these prescriptions would be harder to reduce.
-
-
 ```{r library, error = FALSE, warnimg = FALSE}
 library(tidyverse); theme_set(theme_linedraw()) 
 library(janitor) #Gives Clean_names function
@@ -34,8 +32,6 @@ library(sf) #allows me to create maps
 library(gt) #allows me to create better tables
 library(ggiraph) #allows me to create an interactive map
 ```
-
-
 ```{r Function Creation}
 url_loading <- function(url) {read_csv(url, show_col_types = FALSE) %>% 
     clean_names()} #creates a function to load all csv files in a uniform way
@@ -60,8 +56,6 @@ hb_population <- url_loading("https://www.opendata.nhs.scot/dataset/7f010430-6ce
   filter(year == "2024", sex == "All") #gives us only 2024 populations and removes unneeded gender split
 full_prescriptions_info <- left_join(prescriptions_with_boards, hb_population, by =c("hbt"="hb"))
 ```
-
-
 ```{r}
 per_100k <- function(group){ #prepares data with totals and per 100,000 per supplied group
   full_prescriptions_info %>% 
