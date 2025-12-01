@@ -5,7 +5,6 @@ output:
   html_document:
     theme: darkly
     toc: true
-    toc_float: true
     number_sections: true
     code_folding: hide
     fig_caption: true
@@ -116,6 +115,7 @@ paracetamol_per_board <- per_100k(c("hb_name", "date")) %>%
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
 paracetamol_per_board
 ```
+
 ### How prescriptions change across the year
 
   Looking at figure 2, I can look to see if any health boards had significant changes in paracetamol prescriptions as the year progresses. I would perhaps have expected to observe greater paracetamol prescriptions in the winter months when compared to the rest of the year due to the greater number of illnesses such as viruses and colds occurring in these months [3]. However this does not appear to be the case when looking at figure 2 as I can't observe a significant increase on any of the graphs for the winter months. Most health boards appear to have at least a small peak in May when compared to the months either side as well as October. However this is only a slight increase and i am unable to think of any reason this would occur. The fact that most health boards are relatively consistent could suggest that most paracetamol prescriptions are for conditions that occur equally throughout the year. This could also point to a large amount of prescriptions being for chronic conditions and therefore equally spread throughout the year. Consequently, it would likely be beneficial in future to compare the health boards with the greatest prevalence of chronic conditions per population to which have highest prescriptions per person.
@@ -215,6 +215,7 @@ simd_paracetamol_graph <- simd_paracetamol %>%
 simd_paracetamol_graph
 
 ```
+
 ### Deprivation and Paracetamol Prescriptions
 
   Figure 4 shows how the SIMD quintile of GP practice affects average paracetamol prescriptions per 100,000 within these practices. For SIMD a lower number means a more deprived area (e.g 1 means most deprived). The graph highlights clear differences between SIMD quintile and paracetamol prescriptions. The first and fifth quintiles both had relatively similar levels of paracetamol prescriptions, with fifth being slightly lower. There is then a significant increase of nearlt double the number of prescriptions for the second and third quintiles with third being slightly higher than second. Finally, the fourth quintile has significantly the highest prescriptions, with somewhere between three and four times as many prescriptions per 100,000 than the first quintile. 
