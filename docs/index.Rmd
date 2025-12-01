@@ -8,12 +8,11 @@ output:
     toc_float: true
     number_sections: true
     code_folding: hide
-    fig_caption: yes 
-    knitr:
-      opts_chunk:
-        message: false
-        warning: false
-  runtime: shiny
+    fig_caption: true
+    #knitr:
+      #opts_chunk:
+        #message: false
+        #warning: false
 ---
 
 ```{r setup, include=FALSE, message = FALSE, warning = FALSE}
@@ -25,7 +24,6 @@ knitr::opts_chunk$set(message = FALSE)
 
 #Introduction 
 
-Paracetamol is a very common drug in the UK. while it can be obtained without prescription for significantly cheaper than it costs the NHS to supply through prescriptions, it still remains one of the most prescribed drugs in the UK. I will specifically be looking at the 500mg Paracetamol Tablets as this is the most common form found in shops as well as most commonly prescribed. I am aiming to look if any areas have higher rates of paracetamol prescription than others, if these areas have any trends in demographics and if there is a temporal aspect to the prescription.
 
 ```{r library, error = FALSE, warnimg = FALSE}
 library(ggthemes)
@@ -37,16 +35,9 @@ library(patchwork)
 library(gt)
 library(readr)
 library(ggiraph)
-library(shiny)
-#shiny package
-#plotly
-#consider using a graph where you can select specific health boards /  years
+
 #style to csl document toformat html
 #multiple hashtags make subheadings
-#datatable
-#gt
-
-
 ```
 
 
@@ -57,7 +48,7 @@ url_loading <- function(url) {read_csv(url, show_col_types = FALSE) %>%
 data_cleaning <- function(date, url) {
     url_loading(url)%>% 
     mutate(dmd_code = as.character(dmd_code)) %>% 
-    filter(str_starts(bnf_item_code, "0407010H0")) %>%
+    filter(str_starts(bnf_item_description, "PARACETAMOL 500MG")) %>%
     mutate(date = date) %>%  
     mutate(date = as.Date(paste0(`date`, "/01"), format = "%m/%Y/%d"))}
 ```
@@ -171,12 +162,9 @@ map_of_ages <- map_2 %>%
 
 interactive_map_of_prescriptions <- girafe(ggobj = map_of_prescriptions)
 interactive_map_of_ages <- girafe(ggobj = map_of_ages)
-together_maps <- fluidPage(fluidRow(column(6, girafeOutput("prescriptions")),
-                                    column(6, girafeOutput("ages"))))
-render <- function(input, output, session) {
-  output$prescriptions <- renderGirafe({interactive_map_of_prescriptions})
-  output$ages <- renderGirafe({interactive_map_of_ages})}
-shinyApp(together_maps, render)
+
+interactive_map_of_prescriptions
+interactive_map_of_ages
 ```
 
 ```{r SIMD}
