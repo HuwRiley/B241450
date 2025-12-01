@@ -9,10 +9,6 @@ output:
     number_sections: true
     code_folding: hide
     fig_caption: true
-    #knitr:
-      #opts_chunk:
-        #message: false
-        #warning: false
 ---
 
 ```{r setup, include=FALSE, message = FALSE, warning = FALSE}
@@ -22,7 +18,14 @@ knitr::opts_chunk$set(message = FALSE)
 
 ```
 
-#Introduction 
+## Introduction
+
+  Paracetamol is a very common drug used in Scotland for pain relief. While it can be obtained over the counter from supermarkets and pharmacies, it is still often prescribed in hospitals and the community. When obtained without prescription, paracetamol costs the patient on average £2.43 per 100 tablets while prescribing paracetamol to patients costs the NHS £14.18 for the same quantity[1]. This is due to the costs from dispensing the prescription from the pharmacy as well as the costs of professionals to write the prescriptions[2]  Since the NHS spends around £136 million per year on prescribing medications that can be bought over the counter for cheaper[1], it is important we look to see if there are demographics where these are being prescribed more to identify how we can save the NHS money that could be better spent in other ways. Once these trends are identified, this could be used to help inform changes to prescribing guidelines, improving future clinical practise. 
+  Through looking at prescribing data from Scotland in 2024, I will be looking to see if there are trends in how the paracetamol prescriptions are divided over the population as well as how they change across the year. Firstly, I will look at which health boards prescribe the most paracetamol before looking at how the prescription of paracetamol changes across the year. Following this, I will look to see if there is a correlation between amount of elderly people within a population and paracetamol prescriptions. This is important as I would expect areas with more elderly people to prescribe more paracetamol due to elderly people being more likely to have comorbidities. Finally, I will use the Scottish Index of Multiple Deprivation (SIMD) to look at whether there is a correlation between how deprived an area is and paracetamol prescriptions. I would expect there to be greater number of prescriptions in more deprived areas, possible due to lack of means to purchase paracetamol themselves, whether through being unable to afford it or unable to get to a place to purchase it.
+
+## Methods
+
+  For my analysis, I will be looking at 500mg doses of paracetamol only as these are the most commonly sold measure of paracetamol in supermarkets and therefore the most fair comparison between the two. I will be using prescription data from 2024 as it is the most recent complete year available to me. I am only looking at data of prescriptions in the community, leaving out hospital prescriptions, as it is unrealistic to expect hospitalized patients to purchase their own paracetamol. Therefore they must rely on prescriptions for paracetamol so these prescriptions would be harder to reduce.
 
 
 ```{r library, error = FALSE, warnimg = FALSE}
@@ -38,6 +41,7 @@ library(ggiraph)
 
 #style to csl document toformat html
 #multiple hashtags make subheadings
+#comment on the code
 ```
 
 
@@ -72,9 +76,6 @@ full_prescritions_info <- left_join(prescriptions_with_boards, hb_population, by
 
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
 
 ```{r}
 per_100k <- function(group){
@@ -87,20 +88,27 @@ per_100k <- function(group){
 
 Prescriptions_per_board <- per_100k("hb_name") %>% 
   arrange(desc(items_per_100k)) %>% 
-   rename(Healthboard = hb_name, Prescriptions = number_of_paid_items, "Prescriptions Per 100,000 People" = items_per_100k) %>% 
+   rename(Healthboard = hb_name, Prescriptions = number_of_paid_items, "Figure 1: Prescriptions Per 100,000 People" = items_per_100k) %>% 
   gt() %>% 
   tab_header(title = "Table of Yearly Prescriptions of Paracetamol Per year", 
              subtitle = "Sorted by Prescriptions Per 100,000 People in Descending Order") %>% 
   fmt_number(decimals = 0, use_seps = TRUE)
 Prescriptions_per_board
 ```
+## Results
+
+### Prescriptions Per Healthboard
+
+  From the results of figure 1, we can see that the health board that prescribes the most paracetamol relative to population is Western Isles. They prescribed 74,581 per 100,000 people which is significantly more than Dumfries and Galloway which was second with 52,307. Beyond the top health board, the next 12 are all fairly evenly spread between 35,600 and 54,000 with the final board, Lothian, being significantly the lowest with 27,934. It is worth noting that 3 out of the top 4 health boards are on islands separate to the Scottish mainland so it is possible that this is a potential cause of higher paracetamol prescriptions. This is perhaps due to people in the island boards being more rural and therefore having less access to supermarkets to purchase their own paracetamol and therefore they require the gp to prescribe it for them. This could be further supported by the fact that health boards containing Scotlands two largest cities, Edinburgh and Glasgow, having the lowest and fourth lowest prescriptions per 100,000 people. This supports the hypothesis as these large cities are likely to have more people living within close proximity of multiple supermarkets.
+  However, it may be worth looking at which health boards have the highest overall paracetamol prescriptions regardless of population as these are the areas where reducing the amount of prescriptions could have the greatest overall financial impact. In this case, Greater Glasgow and Clyde has by far the most paracetamol prescriptions, with 461,769 per year, followed by Lothian, Lanarkshire and Grampian, all of which have over 200,000 per year. This in contrast to the island boards, with each having less than 20,000 prescriptions per year. This means that even if you cut all prescriptions from one of these health boards, this would only be equivalent to cutting at most 4.2% of Greater Glasgow and Clyde's prescriptions ((19,406/461,769)*100).
+
 ```{r monthly graph}
 
 paracetamol_per_board <- per_100k(c("hb_name", "date")) %>% 
   ggplot(aes(x = date, y = items_per_100k)) +
   geom_line() +
   facet_wrap(~hb_name) +
-  ggtitle("Total Paracetamol prescriptions per 100,000 population by health board in Scotland (2024)") +
+  ggtitle("Figure 2: Total Paracetamol prescriptions per 100,000 population by health board in Scotland (2024)") +
   xlab("Date") +
   ylab("Number of Prescriptions per 100,000") +
   theme(axis.text.x = element_text(angle = 60, hjust = 1), 
@@ -108,21 +116,23 @@ paracetamol_per_board <- per_100k(c("hb_name", "date")) %>%
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
 paracetamol_per_board
 ```
-From this i can identify the health boards that prescribe the most paracetamol. for my next steps i will add the health board names in, use population data to check prescriptions per 100,000 people and then i will go on to compare the demographics of the health boards to see if there is an explanation of why there are differences.
-MAYBE LOOK AT PRESCRIPTIONS PER MONTH SEPARATELY
+### How prescriptions change across the year
+
+  Looking at figure 2, I can look to see if any health boards had significant changes in paracetamol prescriptions as the year progresses. I would perhaps have expected to observe greater paracetamol prescriptions in the winter months when compared to the rest of the year due to the greater number of illnesses such as viruses and colds occurring in these months [3]. However this does not appear to be the case when looking at figure 2 as I can't observe a significant increase on any of the graphs for the winter months. Most health boards appear to have at least a small peak in May when compared to the months either side as well as October. However this is only a slight increase and i am unable to think of any reason this would occur. The fact that most health boards are relatively consistent could suggest that most paracetamol prescriptions are for conditions that occur equally throughout the year. This could also point to a large amount of prescriptions being for chronic conditions and therefore equally spread throughout the year. Consequently, it would likely be beneficial in future to compare the health boards with the greatest prevalence of chronic conditions per population to which have highest prescriptions per person.
+
 
 ```{r, message = FALSE, results = 'hide'}
 
 zip_path <- paste0("/vsizip//vsicurl/", "https://maps.gov.scot/ATOM/shapefiles/SG_NHS_HealthBoards_2019.zip")
 hb_shapes <- st_read(zip_path)
 
-map <- hb_shapes %>% 
+map_data <- hb_shapes %>% 
   left_join(full_prescritions_info, by = c("HBCode" = "hbt"))
 
 ```
 
-```{r}
-map_of_prescriptions <- map %>% 
+```{r interactive maps}
+map_of_prescriptions <- map_data %>% 
    group_by(hb_name) %>% 
   summarise(number_of_paid_items = sum(number_of_paid_items),
     population = mean(all_ages),
@@ -135,16 +145,16 @@ map_of_prescriptions <- map %>%
     name = "Prescriptions per 100k") +
   theme(plot.title = element_text(face = "bold", size = 10), 
     plot.subtitle = element_text(size = 7))  +
-  labs(title = "Paracetamol Prescriptions in Scotland", 
-    subtitle = "Yearly Number of Paracetamol Prescriptions Per 100k in Each Health Board in Scotland") +
+  labs(title = "Figure 3a: Paracetamol Prescriptions in Scotland", 
+    subtitle = "Yearly Number of Paracetamol Prescriptions Per 100k in Each Health Board in Scotland (hover over areas to see health board name)") +
   theme(plot.title = element_text(face = "bold", size = 10), 
     plot.subtitle = element_text(size = 7)) 
 
-map_2 <- map %>% 
+map_data_elderly <- map_data %>% 
   mutate(over_65 = rowSums(across(86:111))) %>% 
   mutate(percent_over_65 = (over_65 / all_ages)*100)
 
-map_of_ages <- map_2 %>% 
+map_of_ages <- map_data_elderly %>% 
    group_by(hb_name) %>% 
     summarise( number_of_paid_items = sum(number_of_paid_items),
     over_65 = mean(percent_over_65),
@@ -155,8 +165,8 @@ map_of_ages <- map_2 %>%
     palette = "Blues", 
     direction = 1,  
     name = "Percentage over 65") +
-  labs(title = "Map of Older Populations in Scotland", 
-    subtitle = "Percentage of People 65 or Over in Each Health Board") +
+  labs(title = "Figure 3b: Map of Older Populations in Scotland", 
+    subtitle = "Percentage of People 65 or Over in Each Health Board (hover over areas to see health board name)") +
   theme(plot.title = element_text(face = "bold", size = 10), 
     plot.subtitle = element_text(size = 7))  
 
@@ -166,6 +176,11 @@ interactive_map_of_ages <- girafe(ggobj = map_of_ages)
 interactive_map_of_prescriptions
 interactive_map_of_ages
 ```
+### Age and Paracetamol Prescriptions
+
+  Using figures 3a and 3b, I can visualize if there is any correlation between paracetamol proportion of an areas population classified as elderly (over 65). The maps clearly show that Western Isles has both the greatest number of prescriptions per 100,000 people while also having the greatest proportion of its population over 65 years old. Additionally, the graph appears to show a reasonably strong correlation for Orkney, Dumfries & Galloway and Borders. All of which have high proportions of population over 65 while also having relatively high paracetamol prescriptions. On the other side, both Lothian and Greater Glasgow and Clyde have relatively low proportion of elderly people while also both having relatively low paracetamol prescriptions. Therefore, these health boards suggest that an older population may increase the amount of paracetamol prescriptions.
+  However, one possible exception to this trend is Highland health board which appears to have a reasonably high elderly population while its paracetamol prescriptions are relatively low. Conversely, Shetland appears to have relatively high paracetamol prescriptions while not having a particularly large elderly population.
+    Therefore, while it is clear from these maps that there is some correlation between age of a health board and it's paracetamol prescriptions, this isnt necessarily true for all boards. 
 
 ```{r SIMD}
 simd <- url_loading("https://www.opendata.nhs.scot/dataset/78d41fa9-1a62-4f7b-9edb-3e8522a93378/resource/acade396-8430-4b34-895a-b3e757fa346e/download/simd2020v2_22062020.csv") %>% 
@@ -191,12 +206,33 @@ simd_paracetamol_graph <- simd_paracetamol %>%
   ggplot(aes(x = date, y = mean_100k)) +
   geom_line() +
   facet_wrap(~quintiles) +
-  scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
+   ggtitle("Figure 4: Average Paracetamol Prescriptions Per 100,000 people For GP Practices sorted by SIMD quintile") +
+  xlab("Date") +
+  ylab("Mean Prescriptions per 100,000") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        plot.title = element_text(size=11.5), strip.text= element_text(size = 7)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 17000))
 simd_paracetamol_graph
 
 ```
+### Deprivation and Paracetamol Prescriptions
 
+  Figure 4 shows how the SIMD quintile of GP practice affects average paracetamol prescriptions per 100,000 within these practices. For SIMD a lower number means a more deprived area (e.g 1 means most deprived). The graph highlights clear differences between SIMD quintile and paracetamol prescriptions. The first and fifth quintiles both had relatively similar levels of paracetamol prescriptions, with fifth being slightly lower. There is then a significant increase of nearlt double the number of prescriptions for the second and third quintiles with third being slightly higher than second. Finally, the fourth quintile has significantly the highest prescriptions, with somewhere between three and four times as many prescriptions per 100,000 than the first quintile. 
+  This trend suggests that my initial hypothesis that the most deprived areas are likely to recieve more paracetamol prescriptions was incorrect. A possible explanation for the increase between first and fourth quintiles is that an older population is more likely to be richer, and therefore live in less deprived areas. This means that this trend is just mirroring the previously obsereved correlation between age of a population and paracetamol prescriptions. However, this is confounded by the fifth quintile having almost as low prescriptions as the first quintile.
 
-#Limitations
-#conclusions
+## Limitations
+
+  There are a few limitations reducing the validity of these results. Firstly I only used one years worth of data to create this analysis, meaning they do not account for variation between different years. Additionally, this analysis was very generalized, for the most part only looking at data at a health board level, meaning the results being averaged across the boards could have hidden more significant trends in smaller areas.
+
+## Conclusions
+
+  From this analysis I have observed that there are likely some demographics that receive more paracetamol prescriptions than others. Firstly, the islands appear to recieve more paracetamol prescriptions per 100,000 people while larger cities appear to receive less. I did not observe any significant differences in how paracetamol is prescribed across the different months. Age appeared to have a significant effect on prescriptions, with more prescriptions in places with a greater proportion of elderly residents. Finally, there appeared to be a trend in paracetamol prescriptions changing depending on SIMD quintile. However it was uncertain what the cause was. These findings may be useful in future to look at areas to target to reduce paracetamol prescriptions across Scotland, reducing financial burden on NHS. However, further research is required to confirm these findings and fully understand the causality of the observed trends.
+
+## References
+
+1.Find Out The Real Cost of 100 Paracetamol Tablets To The NHS! - Coastal Medical Partnership [Internet]. Coastalmedicalpartnership.nhs.uk. 2024. Available from: https://www.coastalmedicalpartnership.nhs.uk/find-out-the-real-cost-of-100-paracetamol-tablets-to-the-nhs
+
+2.NHS England» Prescription curbs to free up hundreds of millions of pounds for frontline care [Internet]. www.england.nhs.uk. 2017. Available from: https://www.england.nhs.uk/2017/11/prescription-curbs-to-free-up-hundreds-of-millions-of-pounds-for-frontline-care/
+
+3.LaMotte S. Scientists finally know why people get more colds and flu in winter [Internet]. CNN. 2022. Available from: https://edition.cnn.com/2022/12/06/health/why-winter-colds-flu-wellness
 
