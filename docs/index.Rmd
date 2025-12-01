@@ -14,7 +14,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
-
 ```
 
 ## Introduction
@@ -28,71 +27,56 @@ knitr::opts_chunk$set(message = FALSE)
 
 
 ```{r library, error = FALSE, warnimg = FALSE}
-library(ggthemes)
-library(tidyverse); theme_set(theme_linedraw())
-library(janitor)
-library(purrr)
-library(sf)
-library(patchwork)
-library(gt)
-library(readr)
-library(ggiraph)
-
-#style to csl document toformat html
-#multiple hashtags make subheadings
-#comment on the code
+library(tidyverse); theme_set(theme_linedraw()) 
+library(janitor) #Gives Clean_names function
+library(purrr) #allows me to use mapping for loading data
+library(sf) #allows me to create maps
+library(gt) #allows me to create better tables
+library(ggiraph) #allows me to create an interactive map
 ```
 
 
 ```{r Function Creation}
 url_loading <- function(url) {read_csv(url, show_col_types = FALSE) %>% 
-    clean_names()}
+    clean_names()} #creates a function to load all csv files in a uniform way
 
-data_cleaning <- function(date, url) {
+data_cleaning <- function(date, url) { #function to clean all 12 prescription files
     url_loading(url)%>% 
-    mutate(dmd_code = as.character(dmd_code)) %>% 
-    filter(str_starts(bnf_item_description, "PARACETAMOL 500MG")) %>%
-    mutate(date = date) %>%  
-    mutate(date = as.Date(paste0(`date`, "/01"), format = "%m/%Y/%d"))}
+    mutate(dmd_code = as.character(dmd_code)) %>% #standardises dmd_code so always character
+    filter(str_starts(bnf_item_description, "PARACETAMOL 500MG")) %>% #only looking at 500mg so removes anything else
+    mutate(date = as.Date(paste0(`date`, "/01"), format = "%m/%Y/%d"))} #puts date in correct format
 ```
 ```{r Prescription Information}
-dates <- sprintf("%02d/2024", 1:12)
-urls <- read_lines("links_clean.csv")
-
-prescriptions_2024 <-map2_dfr(dates, urls, data_cleaning)
+dates <- sprintf("%02d/2024", 1:12) #creates a dataframe with dates to add to the loaded data
+urls <- read_lines("links_clean.csv") #reads the csv with urls of all prescription data (stored in docs)
+prescriptions_2024 <-map2_dfr(dates, urls, data_cleaning) 
 ```
 ```{r Healthboard Information}
-hb_names <- url_loading("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% 
-  select(hb, hb_name)
- 
+hb_names <- url_loading("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% #adding health board names
+  select(hb, hb_name) #selects only the useful columns
 prescriptions_with_boards <- left_join(prescriptions_2024, hb_names, by =c("hbt"="hb"))
 
-hb_population <- url_loading("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv") %>% 
-  filter(year == "2024", sex == "All") 
-  
-full_prescritions_info <- left_join(prescriptions_with_boards, hb_population, by =c("hbt"="hb"))
-
-
+hb_population <- url_loading("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv") %>%  #adding health board populations
+  filter(year == "2024", sex == "All") #gives us only 2024 populations and removes unneeded gender split
+full_prescriptions_info <- left_join(prescriptions_with_boards, hb_population, by =c("hbt"="hb"))
 ```
 
 
 ```{r}
-per_100k <- function(group){
-  full_prescritions_info %>% 
+per_100k <- function(group){ #prepares data with totals and per 100,000 per supplied group
+  full_prescriptions_info %>% 
   filter(!is.na(hb_name)) %>% 
   group_by(across(all_of(group))) %>% 
-  summarise(number_of_paid_items = sum(number_of_paid_items),
-    population = mean(all_ages)) %>% 
-  mutate(items_per_100k = number_of_paid_items / population * 100000)}
+  summarise(number_of_paid_items = sum(number_of_paid_items), population = mean(all_ages)) %>% 
+  mutate(items_per_100k = number_of_paid_items / population * 100000)} 
 
-Prescriptions_per_board <- per_100k("hb_name") %>% 
+Prescriptions_per_board <- per_100k("hb_name") %>% #creating table of yearly prescriptions per health board
   arrange(desc(items_per_100k)) %>% 
    rename(Healthboard = hb_name, Prescriptions = number_of_paid_items, "Figure 1: Prescriptions Per 100,000 People" = items_per_100k) %>% 
   gt() %>% 
-  tab_header(title = "Table of Yearly Prescriptions of Paracetamol Per year", 
-             subtitle = "Sorted by Prescriptions Per 100,000 People in Descending Order") %>% 
-  fmt_number(decimals = 0, use_seps = TRUE)
-Prescriptions_per_board
+  tab_header(title = "Table of Yearly Prescriptions of Paracetamol Per year", subtitle = "Sorted by Prescriptions Per 100,000 People in Descending Order") %>% 
+  fmt_number(decimals = 0, use_seps = TRUE) #removes decimals and adds commas to numbers
+Prescriptions_per_board#displaying table
 ```
 ## Results
 
@@ -102,104 +86,79 @@ Prescriptions_per_board
   However, it may be worth looking at which health boards have the highest overall paracetamol prescriptions regardless of population as these are the areas where reducing the amount of prescriptions could have the greatest overall financial impact. In this case, Greater Glasgow and Clyde has by far the most paracetamol prescriptions, with 461,769 per year, followed by Lothian, Lanarkshire and Grampian, all of which have over 200,000 per year. This in contrast to the island boards, with each having less than 20,000 prescriptions per year. This means that even if you cut all prescriptions from one of these health boards, this would only be equivalent to cutting at most 4.2% of Greater Glasgow and Clyde's prescriptions ((19,406/461,769)*100).
 
 ```{r monthly graph}
-
-paracetamol_per_board <- per_100k(c("hb_name", "date")) %>% 
+paracetamol_per_board <- per_100k(c("hb_name", "date")) %>% #creating graph of monthly prescribtions per board
   ggplot(aes(x = date, y = items_per_100k)) +
   geom_line() +
   facet_wrap(~hb_name) +
   ggtitle("Figure 2: Total Paracetamol prescriptions per 100,000 population by health board in Scotland (2024)") +
   xlab("Date") +
   ylab("Number of Prescriptions per 100,000") +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
-        plot.title = element_text(size=11.5), strip.text= element_text(size = 7)) +
-  scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
-paracetamol_per_board
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), plot.title = element_text(size=11.5), strip.text= element_text(size = 7)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) #allows comparison between health boards
+paracetamol_per_board #displays graph
 ```
 
 ### How prescriptions change across the year
 
   Looking at figure 2, I can look to see if any health boards had significant changes in paracetamol prescriptions as the year progresses. I would perhaps have expected to observe greater paracetamol prescriptions in the winter months when compared to the rest of the year due to the greater number of illnesses such as viruses and colds occurring in these months [3]. However this does not appear to be the case when looking at figure 2 as I can't observe a significant increase on any of the graphs for the winter months. Most health boards appear to have at least a small peak in May when compared to the months either side as well as October. However this is only a slight increase and i am unable to think of any reason this would occur. The fact that most health boards are relatively consistent could suggest that most paracetamol prescriptions are for conditions that occur equally throughout the year. This could also point to a large amount of prescriptions being for chronic conditions and therefore equally spread throughout the year. Consequently, it would likely be beneficial in future to compare the health boards with the greatest prevalence of chronic conditions per population to which have highest prescriptions per person.
 
-
-```{r, message = FALSE, results = 'hide'}
-
+```{r Load Location Data, message = FALSE, results = 'hide'}
 zip_path <- paste0("/vsizip//vsicurl/", "https://maps.gov.scot/ATOM/shapefiles/SG_NHS_HealthBoards_2019.zip")
-hb_shapes <- st_read(zip_path)
+hb_shapes <- st_read(zip_path) #reading geograohical data as saved online in a zip file
+map_data <- hb_shapes %>% #adding geographical data to large dataframe
+  left_join(full_prescriptions_info, by = c("HBCode" = "hbt"))
 
-map_data <- hb_shapes %>% 
-  left_join(full_prescritions_info, by = c("HBCode" = "hbt"))
-
-```
-
-```{r interactive maps}
-map_of_prescriptions <- map_data %>% 
-   group_by(hb_name) %>% 
-  summarise(number_of_paid_items = sum(number_of_paid_items),
-    population = mean(all_ages),
-     geometry = first(geometry)) %>% 
-  mutate(items_per_100k = number_of_paid_items / population * 100000) %>% 
-  ggplot(aes(tooltip = hb_name, data_id = hb_name, fill = items_per_100k)) +
-  geom_sf_interactive(colour = "black", size = 0.1) +
-  scale_fill_distiller(palette = "Blues", 
-    direction = 1,  
-    name = "Prescriptions per 100k") +
-  theme(plot.title = element_text(face = "bold", size = 10), 
-    plot.subtitle = element_text(size = 7))  +
-  labs(title = "Figure 3a: Paracetamol Prescriptions in Scotland", 
-    subtitle = "Yearly Number of Paracetamol Prescriptions Per 100k in Each Health Board in Scotland (hover over areas to see health board name)") +
-  theme(plot.title = element_text(face = "bold", size = 10), 
-    plot.subtitle = element_text(size = 7)) 
-
-map_data_elderly <- map_data %>% 
+map_data_elderly <- map_data %>% #adding a column for proportion over 65
   mutate(over_65 = rowSums(across(86:111))) %>% 
-  mutate(percent_over_65 = (over_65 / all_ages)*100)
-
-map_of_ages <- map_data_elderly %>% 
+  mutate(percent_over_65 = (over_65 / all_ages)*100) 
+```
+```{r interactive maps}
+map_of_prescriptions <- map_data %>% #creating map of prescriptions per health board
    group_by(hb_name) %>% 
-    summarise( number_of_paid_items = sum(number_of_paid_items),
-    over_65 = mean(percent_over_65),
-    geometry = first(geometry),) %>% 
-  ggplot(aes(tooltip = hb_name, data_id = hb_name, fill = over_65)) +
-  geom_sf_interactive( colour = "black", size = 0.1) +
-  scale_fill_distiller(
-    palette = "Blues", 
-    direction = 1,  
-    name = "Percentage over 65") +
-  labs(title = "Figure 3b: Map of Older Populations in Scotland", 
-    subtitle = "Percentage of People 65 or Over in Each Health Board (hover over areas to see health board name)") +
-  theme(plot.title = element_text(face = "bold", size = 10), 
-    plot.subtitle = element_text(size = 7))  
+  summarise(number_of_paid_items = sum(number_of_paid_items), population = mean(all_ages), geometry = first(geometry)) %>% 
+  mutate(items_per_100k = number_of_paid_items / population * 100000) %>% #calculating prescriptions per 100,000 people
+  ggplot(aes(tooltip = hb_name, data_id = hb_name, fill = items_per_100k)) + #includes deciding what data shows when someone interacts with map
+  geom_sf_interactive(colour = "black", size = 0.1) + #tells r to make map interactive
+  scale_fill_distiller(palette = "Blues", direction = 1, name = "Prescriptions per 100k") +
+  theme(plot.title = element_text(face = "bold", size = 10), plot.subtitle = element_text(size = 7))  +
+  labs(title = "Figure 3a: Paracetamol Prescriptions in Scotland", subtitle = "Yearly Number of Paracetamol Prescriptions Per 100k in Each Health Board in Scotland (hover over areas to see health board name)") +
+  theme(plot.title = element_text(face = "bold", size = 10), plot.subtitle = element_text(size = 7)) 
 
-interactive_map_of_prescriptions <- girafe(ggobj = map_of_prescriptions)
-interactive_map_of_ages <- girafe(ggobj = map_of_ages)
+map_of_ages <- map_data_elderly %>% #creating map of proportion over 65 in each health board
+   group_by(hb_name) %>% 
+    summarise( number_of_paid_items = sum(number_of_paid_items), over_65 = mean(percent_over_65), geometry = first(geometry),) %>% #ensuring only one row per health board
+  ggplot(aes(tooltip = hb_name, data_id = hb_name, fill = over_65)) + #includes deciding what data shows when someone interacts with map
+  geom_sf_interactive( colour = "black", size = 0.1) + #tells r to make interactive map
+  scale_fill_distiller(palette = "Blues", direction = 1, name = "Percentage over 65") +
+  labs(title = "Figure 3b: Map of Older Populations in Scotland", subtitle = "Percentage of People 65 or Over in Each Health Board (hover over areas to see health board name)") +
+  theme(plot.title = element_text(face = "bold", size = 10), plot.subtitle = element_text(size = 7))  
 
-interactive_map_of_prescriptions
-interactive_map_of_ages
+interactive_map_of_prescriptions <- girafe(ggobj = map_of_prescriptions) #converts the map to be interactive
+interactive_map_of_ages <- girafe(ggobj = map_of_ages) #converts the map to be interactive
+interactive_map_of_prescriptions #displays the prescriptions map
+interactive_map_of_ages #displays the ages map
 ```
 ### Age and Paracetamol Prescriptions
 
   Using figures 3a and 3b, I can visualize if there is any correlation between paracetamol proportion of an areas population classified as elderly (over 65). The maps clearly show that Western Isles has both the greatest number of prescriptions per 100,000 people while also having the greatest proportion of its population over 65 years old. Additionally, the graph appears to show a reasonably strong correlation for Orkney, Dumfries & Galloway and Borders. All of which have high proportions of population over 65 while also having relatively high paracetamol prescriptions. On the other side, both Lothian and Greater Glasgow and Clyde have relatively low proportion of elderly people while also both having relatively low paracetamol prescriptions. Therefore, these health boards suggest that an older population may increase the amount of paracetamol prescriptions.
   However, one possible exception to this trend is Highland health board which appears to have a reasonably high elderly population while its paracetamol prescriptions are relatively low. Conversely, Shetland appears to have relatively high paracetamol prescriptions while not having a particularly large elderly population.
     Therefore, while it is clear from these maps that there is some correlation between age of a health board and it's paracetamol prescriptions, this isnt necessarily true for all boards. 
-
 ```{r SIMD}
 simd <- url_loading("https://www.opendata.nhs.scot/dataset/78d41fa9-1a62-4f7b-9edb-3e8522a93378/resource/acade396-8430-4b34-895a-b3e757fa346e/download/simd2020v2_22062020.csv") %>% 
   rename(quintiles = simd2020v2country_quintile) %>% 
-  select(quintiles, data_zone)
+  select(quintiles, data_zone) #loading SIMD quintiles data per GP practise 
 
-gps <- url_loading("https://www.opendata.nhs.scot/dataset/f23655c3-6e23-4103-a511-a80d998adb90/resource/47557411-7eda-4278-9d6d-d26ed2ceab5a/download/practice_contact_details_20251001_o.csv") %>% 
+simd_gps <- url_loading("https://www.opendata.nhs.scot/dataset/f23655c3-6e23-4103-a511-a80d998adb90/resource/47557411-7eda-4278-9d6d-d26ed2ceab5a/download/practice_contact_details_20251001_o.csv") %>% 
   rename(gp_practice = practice_code) %>% 
   left_join(simd, by = "data_zone") %>% 
-  filter(!(is.na(gp_practice)|is.na(quintiles)))
+  filter(!(is.na(gp_practice)|is.na(quintiles))) #adds more information about the GP practices to SIMD data
 
-simd_paracetamol <-full_prescritions_info %>% 
-  left_join(gps, by = "gp_practice")
+simd_paracetamol <-full_prescriptions_info %>% 
+  left_join(simd_gps, by = "gp_practice") #adds SIMD data and GP info to main data
 
-
-simd_paracetamol_graph <- simd_paracetamol %>% 
-  group_by(gp_practice_name, date) %>% 
-  summarise(items_per_100k = sum(paid_quantity / all_ages)*100000,
-            quintiles = first(quintiles)) %>% 
+simd_paracetamol_graph <- simd_paracetamol %>% #creating graph about SIMD and prescriptions
+  group_by(gp_practice_name, date) %>% #to calculate prescriptions per patients separately
+  summarise(items_per_100k = sum(number_of_paid_items / practice_list_size)*100000, quintiles = first(quintiles)) %>% 
   group_by(quintiles, date) %>% 
   summarise(mean_100k = mean(items_per_100k)) %>% 
   filter(!is.na(quintiles)) %>% 
@@ -209,17 +168,14 @@ simd_paracetamol_graph <- simd_paracetamol %>%
    ggtitle("Figure 4: Average Paracetamol Prescriptions Per 100,000 people For GP Practices sorted by SIMD quintile") +
   xlab("Date") +
   ylab("Mean Prescriptions per 100,000") +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
-        plot.title = element_text(size=11.5), strip.text= element_text(size = 7)) +
-  scale_y_continuous(expand = c(0, 0), limits = c(0, 17000))
-simd_paracetamol_graph
-
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), plot.title = element_text(size=10), strip.text= element_text(size = 7)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA), labels = scales::comma)
+simd_paracetamol_graph #Displays SIMD graph
 ```
 
 ### Deprivation and Paracetamol Prescriptions
 
-  Figure 4 shows how the SIMD quintile of GP practice affects average paracetamol prescriptions per 100,000 within these practices. For SIMD a lower number means a more deprived area (e.g 1 means most deprived). The graph highlights clear differences between SIMD quintile and paracetamol prescriptions. The first and fifth quintiles both had relatively similar levels of paracetamol prescriptions, with fifth being slightly lower. There is then a significant increase of nearlt double the number of prescriptions for the second and third quintiles with third being slightly higher than second. Finally, the fourth quintile has significantly the highest prescriptions, with somewhere between three and four times as many prescriptions per 100,000 than the first quintile. 
-  This trend suggests that my initial hypothesis that the most deprived areas are likely to recieve more paracetamol prescriptions was incorrect. A possible explanation for the increase between first and fourth quintiles is that an older population is more likely to be richer, and therefore live in less deprived areas. This means that this trend is just mirroring the previously obsereved correlation between age of a population and paracetamol prescriptions. However, this is confounded by the fifth quintile having almost as low prescriptions as the first quintile.
+  Figure 4 shows how the SIMD quintile of GP practice affects average paracetamol prescriptions per 100,000 within these practices. For SIMD a lower number means a more deprived area (e.g 1 means most deprived). In the graph I can see that quintiles 2 and 3 have the highest mean paracetamol prescriptions per 100,000 patients, closely followed by the first quintile. There is then a visible decrease from the first three quintiles to the fourth quintile. The fifth quintile has a significantly lower mean prescriptions than the first four. This therefore fits my hypothesis to some extent from my introduction that the more deprived areas would be prescribed more paracetamol on average than the less deprived areas. This makes sense as people in deprived areas may have less money to spend on paracetamol themselves. Alternatively, they could be in deprived areas due to a chronic condition reducing their ability to work, with the condition possibly needing paracetamol as part of treatment, meaning the trend is due to chronic condition prevalence rather than SIMD quintile directly. However this relationship is weak as it is only really visible when going above the third quintile to the fourth and fifth. Therefore this finding has limited utility for guiding policy on paracetamol prescriptions as it is not a strong link and the link may be a correlation rather than causation.
 
 ## Limitations
 
@@ -227,7 +183,7 @@ simd_paracetamol_graph
 
 ## Conclusions
 
-  From this analysis I have observed that there are likely some demographics that receive more paracetamol prescriptions than others. Firstly, the islands appear to recieve more paracetamol prescriptions per 100,000 people while larger cities appear to receive less. I did not observe any significant differences in how paracetamol is prescribed across the different months. Age appeared to have a significant effect on prescriptions, with more prescriptions in places with a greater proportion of elderly residents. Finally, there appeared to be a trend in paracetamol prescriptions changing depending on SIMD quintile. However it was uncertain what the cause was. These findings may be useful in future to look at areas to target to reduce paracetamol prescriptions across Scotland, reducing financial burden on NHS. However, further research is required to confirm these findings and fully understand the causality of the observed trends.
+  From this analysis I have observed that there are likely some demographics that receive more paracetamol prescriptions than others. Firstly, the islands appear to recieve more paracetamol prescriptions per 100,000 people while larger cities appear to receive less. I did not observe any significant differences in how paracetamol is prescribed across the different months. Age appeared to have a significant effect on prescriptions, with more prescriptions in places with a greater proportion of elderly residents. Finally, there appeared to be a trend in paracetamol prescriptions changing depending on SIMD quintile, however this was not a particularly significant trend. These findings may be useful in future to look at areas to target to reduce paracetamol prescriptions across Scotland, reducing financial burden on NHS. However, further research is required to confirm these findings and fully understand the causality of the observed trends.
 
 ## References
 
@@ -236,4 +192,3 @@ simd_paracetamol_graph
 2.NHS England» Prescription curbs to free up hundreds of millions of pounds for frontline care [Internet]. www.england.nhs.uk. 2017. Available from: https://www.england.nhs.uk/2017/11/prescription-curbs-to-free-up-hundreds-of-millions-of-pounds-for-frontline-care/
 
 3.LaMotte S. Scientists finally know why people get more colds and flu in winter [Internet]. CNN. 2022. Available from: https://edition.cnn.com/2022/12/06/health/why-winter-colds-flu-wellness
-
